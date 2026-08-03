@@ -170,6 +170,66 @@ test "reserve keeps columns free for what follows" {
 }
 
 ///|
+test "max_indent caps how far a line may be indented" {
+  let doc = horz([txt("(let ((x "), vert([txt("first"), txt("second")])])
+  assert_eq(doc.display(), ["(let ((x first", "         second"])
+  assert_eq(doc.display(max_indent=4), ["(let ((x first", "    second"])
+  // A cap no line reaches changes nothing, and neither does leaving it unset.
+  assert_eq(doc.display(max_indent=9), doc.display())
+  assert_eq(doc.display(max_indent=999), doc.display())
+  // Zero pulls every broken line back to the left margin.
+  assert_eq(doc.display(max_indent=0), ["(let ((x first", "second"])
+}
+
+///|
+/// The cap moves lines the printer starts. It cannot move text that is already
+/// on a line: the column that line continues from is settled by then.
+test "max_indent does not shorten a line that is already long" {
+  let doc = horz([txt("x".repeat(40)), vert([txt("a"), txt("b")])])
+  let lines = doc.display(width=20, max_indent=4)
+  assert_eq(lines[0].length(), 41)
+  assert_eq(lines[1], "    b")
+}
+
+///|
+/// Every source of indentation goes through the same break, so the cap applies
+/// to `nest` and to the column `horz` picks up alike.
+test "max_indent applies to nest as well as horz" {
+  let doc = nest(30, vert([txt("a"), txt("b")]))
+  assert_eq(doc.display(), ["a", "                              b"])
+  assert_eq(doc.display(max_indent=3), ["a", "   b"])
+  // Levels past the cap collapse onto it, so this nesting stops being visible.
+  let inner = vert([txt("b"), nest(10, vert([txt("c"), txt("d")]))])
+  assert_eq(nest(30, vert([txt("a"), inner])).display(max_indent=3), [
+    "a", "   b", "   c", "   d",
+  ])
+}
+
+///|
+/// Pulling a line back leaves more columns free on it, and the layout that
+/// follows is decided from the column the line actually starts at.
+test "max_indent gives the layout that follows more room" {
+  let group = if_flat(
+    txt("[1, 2, 3]"),
+    vert([txt("[1,"), txt(" 2,"), txt(" 3]")]),
+  )
+  let doc = horz([txt(" ".repeat(8)), vert([txt("xs ="), group])])
+  assert_eq(doc.display(width=16), [
+    "        xs =", "        [1,", "         2,", "         3]",
+  ])
+  assert_eq(doc.display(width=16, max_indent=2), ["        xs =", "  [1, 2, 3]"])
+}
+
+///|
+test "max_indent reaches display_string and write_to too" {
+  let doc = horz([txt("ab"), vert([txt("x"), txt("y")])])
+  assert_eq(doc.display_string(max_indent=0), "abx\ny")
+  let buf = StringBuilder::new()
+  doc.write_to(buf, max_indent=0)
+  assert_eq(buf.to_string(), "abx\ny")
+}
+
+///|
 test "write_to appends into an existing buffer" {
   let buf = StringBuilder::new()
   buf.write_string("> ")

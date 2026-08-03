@@ -425,8 +425,18 @@ pub fn Doc::flat_width(self : Doc) -> Int? {
 ///   assert_eq(doc.display(), ["one", "  two"])
 /// }
 /// ```
-pub fn Doc::display(self : Doc, width? : Int = 80) -> Array[String] {
-  self.display_string(width~).split("\n").map(line => line.to_owned()).collect()
+///
+/// `max_indent` caps indentation; see [`Doc::write_to`].
+pub fn Doc::display(
+  self : Doc,
+  width? : Int = 80,
+  max_indent? : Int,
+) -> Array[String] {
+  self
+  .display_string(width~, max_indent?)
+  .split("\n")
+  .map(line => line.to_owned())
+  .collect()
 }
 
 ///|
@@ -445,9 +455,15 @@ pub fn Doc::display(self : Doc, width? : Int = 80) -> Array[String] {
 ///   )
 /// }
 /// ```
-pub fn Doc::display_string(self : Doc, width? : Int = 80) -> String {
+///
+/// `max_indent` caps indentation; see [`Doc::write_to`].
+pub fn Doc::display_string(
+  self : Doc,
+  width? : Int = 80,
+  max_indent? : Int,
+) -> String {
   let buf = StringBuilder::new()
-  self.write_to(buf, width~)
+  self.write_to(buf, width~, max_indent?)
   buf.to_string()
 }
 
@@ -475,12 +491,61 @@ pub fn Doc::display_string(self : Doc, width? : Int = 80) -> String {
 /// Note that the document is laid out from column 0 regardless of what the
 /// buffer already contains — a `StringBuilder` has no notion of a column. Wrap
 /// the document in a [`horz`] or [`nest`] if you need it indented.
+///
+/// ## Capping indentation
+///
+/// `max_indent` is the furthest column the printer may indent a line to. Left
+/// unset, indentation is unbounded: [`horz`] indents to wherever its left
+/// operand ended, so deeply nested documents drift right until the width left
+/// for their contents is gone.
+///
+/// ```mbt check
+/// test {
+///   let doc = horz([txt("(let ((x "), vert([txt("first"), txt("second")])])
+///   assert_eq(doc.display(), ["(let ((x first", "         second"])
+///   assert_eq(doc.display(max_indent=4), ["(let ((x first", "    second"])
+/// }
+/// ```
+///
+/// The usual reason to want this is to guarantee every line a minimum of usable
+/// columns — `display(width=80, max_indent=70)` leaves ten for content, no
+/// matter how deep the document goes. It cannot be expressed as part of the
+/// document, because a `Doc` has no columns until it is rendered.
+///
+/// Two things to know about what the cap does:
+///
+/// - It only moves lines the *printer* starts. Text already written to a line
+///   has fixed the column the rest of that line continues from, so a long first
+///   line still runs as far right as its contents take it.
+/// - Indentation levels past the cap collapse onto it, so nesting that would
+///   have been visible in the output no longer is. That is the trade the cap
+///   makes: the layout comes out less indented than the document asked for.
+///
+/// The cap also feeds back into the layout. A line pulled leftwards has more
+/// columns free, so groups on it that would have been broken can fit flat:
+///
+/// ```mbt check
+/// test {
+///   let group = if_flat(
+///     txt("[1, 2, 3]"),
+///     vert([txt("[1,"), txt(" 2,"), txt(" 3]")]),
+///   )
+///   let doc = horz([txt("        "), vert([txt("xs ="), group])])
+///   // At width 16 the group starts in column 8 and does not fit.
+///   assert_eq(doc.display(width=16), [
+///     "        xs =", "        [1,", "         2,", "         3]",
+///   ])
+///   // Capped at column 2 it does.
+///   assert_eq(doc.display(width=16, max_indent=2), ["        xs =", "  [1, 2, 3]"])
+/// }
+/// ```
 pub fn Doc::write_to(
   self : Doc,
   buf : StringBuilder,
   width? : Int = 80,
+  max_indent? : Int,
 ) -> Unit {
-  ignore(self.render(Out::new(buf), 0, 0, width))
+  ignore(self.render(Out::new(buf), 0, 0, width, max_indent))
 }
 
 // ---------------------------------------------------------------------------
@@ -582,6 +647,7 @@ priv enum Work {
 /// - `indent`: the column to return to when a line breaks.
 /// - `column`: the current column.
 /// - `width`: the width the printing is allowed to occupy.
+/// - `max_indent`: the furthest column a line may be indented to, if capped.
 ///
 /// This walks the document with an explicit work stack rather than recursing.
 /// A document's *depth* is unbounded in practice — folding N pieces together
@@ -594,13 +660,23 @@ fn Doc::render(
   indent : Int,
   column : Int,
   width : Int,
+  max_indent : Int?,
 ) -> Int {
   let mut column = column
   let stack = [Todo(self, indent)]
   while stack.pop() is Some(work) {
     match work {
       Indented(doc) => stack.push(Todo(doc, column))
+      // A break is the only place indentation is ever materialised, so it is
+      // the one place the cap has to be applied. The clamped indentation is
+      // what the rest of the document sees: levels past the cap collapse onto
+      // it, and `column` is the real column the line starts at, so the layout
+      // decisions taken further along get the room the cap won back.
       AfterBreak(doc, indent) => {
+        let indent = match max_indent {
+          Some(cap) if indent > cap => cap
+          _ => indent
+        }
         out.newline(indent)
         column = indent
         stack.push(Todo(doc, indent))

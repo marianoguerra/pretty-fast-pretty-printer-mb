@@ -5,6 +5,37 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-03
+
+One render option added; nothing else changes, and documents render exactly as
+they did before unless it is used.
+
+### Added
+
+- **`max_indent`, an optional cap on how far the printer may indent a line**,
+  accepted by `Doc::display`, `Doc::display_string` and `Doc::write_to` beside
+  `width`. `horz` indents to wherever its left operand ended, so a deeply nested
+  document drifts right until no width is left for its contents; capping the
+  indentation guarantees every line a minimum of usable columns —
+  `display(width=80, max_indent=70)` always leaves ten for content.
+
+  ```moonbit
+  let doc = horz([txt("(let ((x "), vert([txt("first"), txt("second")])])
+  doc.display()              // ["(let ((x first", "         second"]
+  doc.display(max_indent=4)  // ["(let ((x first", "    second"]
+  ```
+
+  This belongs at render time rather than in the document: a `Doc` has no
+  columns until it is rendered, so no combinator can express it.
+
+  The cap only moves lines the printer itself starts — text already on a line
+  has settled the column the rest of that line continues from. Indentation
+  levels past the cap collapse onto it, so nesting deeper than the cap stops
+  being visible in the output. In exchange, a line pulled leftwards has more
+  columns free, so groups on it that would have been broken can fit flat.
+
+  Leaving `max_indent` unset renders exactly as before.
+
 ## [0.2.0] - 2026-08-03
 
 Two crashes and one whitespace bug fixed, and the API grown to cover the cases

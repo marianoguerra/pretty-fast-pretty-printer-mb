@@ -52,10 +52,10 @@ pub fn wrap(Array[Doc], sep? : String, vert_sep? : String) -> Doc
 
 // Types and methods
 type Doc derive(@debug.Debug)
-pub fn Doc::display(Self, width? : Int) -> Array[String]
-pub fn Doc::display_string(Self, width? : Int) -> String
+pub fn Doc::display(Self, width? : Int, max_indent? : Int) -> Array[String]
+pub fn Doc::display_string(Self, width? : Int, max_indent? : Int) -> String
 pub fn Doc::flat_width(Self) -> Int?
-pub fn Doc::write_to(Self, StringBuilder, width? : Int) -> Unit
+pub fn Doc::write_to(Self, StringBuilder, width? : Int, max_indent? : Int) -> Unit
 
 pub(all) enum Piece {
   Str(String)

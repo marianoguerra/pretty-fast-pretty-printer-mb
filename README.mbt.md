@@ -199,6 +199,33 @@ width of 80.
 
 `empty` is the empty document.
 
+### Capping indentation
+
+All three take an optional `max_indent`: the furthest column the printer may
+indent a line to. Left unset, indentation is unbounded — `horz` indents to
+wherever its left operand ended, so a deeply nested document drifts right until
+there is no width left for its contents.
+
+```mbt check
+///|
+test {
+  let doc = horz([txt("(let ((x "), vert([txt("first"), txt("second")])])
+  assert_eq(doc.display(), ["(let ((x first", "         second"])
+  assert_eq(doc.display(max_indent=4), ["(let ((x first", "    second"])
+}
+```
+
+The usual reason to want this is to guarantee every line a minimum of usable
+columns: `display(width=80, max_indent=70)` always leaves ten for content. It
+has to be given at render time — a `Doc` has no columns until it is rendered,
+so this is not something a document can say about itself.
+
+The cap only moves lines the printer starts; text already on a line has settled
+the column the rest of that line continues from. Indentation levels past the cap
+collapse onto it, so nesting deeper than the cap stops being visible — that is
+the trade. In exchange, a line pulled leftwards has more columns free, so groups
+on it that would have been broken can fit flat.
+
 ### Measuring text that is not plain ASCII
 
 `txt` measures text in UTF-16 code units. That is exact for ASCII, and wrong
