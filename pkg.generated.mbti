@@ -1,0 +1,53 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "marianoguerra/pretty-fast-pretty-printer"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn begin_like_sexpr(Doc, Array[Doc]) -> Doc
+
+pub fn concat(Array[Doc]) -> Doc
+
+pub let empty : Doc
+
+pub fn full_line(Doc) -> Doc
+
+pub fn horz(Array[Doc]) -> Doc
+
+pub fn if_flat(Doc, Doc) -> Doc
+
+pub fn lambda_like_sexpr(Doc, Doc, Doc) -> Doc
+
+pub fn parens(Doc) -> Doc
+
+pub fn pretty(Array[Piece]) -> Doc
+
+pub fn sep_by(Array[Doc], sep? : String, vert_sep? : String) -> Doc
+
+pub fn standard_sexpr(Doc, Array[Doc]) -> Doc
+
+pub fn txt(String) -> Doc
+
+pub fn txt_lines(String) -> Doc
+
+pub fn vert(Array[Doc]) -> Doc
+
+pub fn wrap(Array[Doc], sep? : String, vert_sep? : String) -> Doc
+
+// Errors
+
+// Types and methods
+type Doc derive(@debug.Debug)
+pub fn Doc::display(Self, width? : Int) -> Array[String]
+pub fn Doc::display_string(Self, width? : Int) -> String
+
+pub(all) enum Piece {
+  Str(String)
+  Val(Doc)
+} derive(@debug.Debug)
+
+// Type aliases
+
+// Traits

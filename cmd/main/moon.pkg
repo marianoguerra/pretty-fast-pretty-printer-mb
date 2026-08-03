@@ -1,5 +1,5 @@
-// import {
-//   "marianoguerra/pretty-fast-pretty-printer" @lib,
-// }
+import {
+  "marianoguerra/pretty-fast-pretty-printer" @pp,
+}
 
 pkgtype(kind: "executable")

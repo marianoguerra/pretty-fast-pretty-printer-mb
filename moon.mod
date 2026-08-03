@@ -15,12 +15,12 @@ version = "0.1.0"
 
 readme = "README.mbt.md"
 
-repository = ""
+repository = "https://github.com/marianoguerra/pretty-fast-pretty-printer-mb"
 
-license = "Apache-2.0"
+license = "MIT"
 
-keywords = []
+keywords = [ "pretty", "printing", "pretty-printer", "formatting", "layout" ]
 
 preferred_target = "wasm"
 
-description = ""
+description = "A linear time pretty printing library, ported from brownplt/pretty-fast-pretty-printer"
