@@ -10,15 +10,21 @@ pub fn begin_like_sexpr(Doc, Array[Doc]) -> Doc
 
 pub fn concat(Array[Doc]) -> Doc
 
+pub fn concat2(Doc, Doc) -> Doc
+
 pub let empty : Doc
 
 pub fn full_line(Doc) -> Doc
 
 pub fn horz(Array[Doc]) -> Doc
 
-pub fn if_flat(Doc, Doc) -> Doc
+pub fn horz2(Doc, Doc) -> Doc
+
+pub fn if_flat(Doc, Doc, reserve? : Int) -> Doc
 
 pub fn lambda_like_sexpr(Doc, Doc, Doc) -> Doc
+
+pub fn nest(Int, Doc) -> Doc
 
 pub fn parens(Doc) -> Doc
 
@@ -30,9 +36,15 @@ pub fn standard_sexpr(Doc, Array[Doc]) -> Doc
 
 pub fn txt(String) -> Doc
 
+pub fn txt_as(String, Int) -> Doc
+
 pub fn txt_lines(String) -> Doc
 
+pub fn txt_raw(String) -> Doc
+
 pub fn vert(Array[Doc]) -> Doc
+
+pub fn vert2(Doc, Doc) -> Doc
 
 pub fn wrap(Array[Doc], sep? : String, vert_sep? : String) -> Doc
 
@@ -42,6 +54,8 @@ pub fn wrap(Array[Doc], sep? : String, vert_sep? : String) -> Doc
 type Doc derive(@debug.Debug)
 pub fn Doc::display(Self, width? : Int) -> Array[String]
 pub fn Doc::display_string(Self, width? : Int) -> String
+pub fn Doc::flat_width(Self) -> Int?
+pub fn Doc::write_to(Self, StringBuilder, width? : Int) -> Unit
 
 pub(all) enum Piece {
   Str(String)

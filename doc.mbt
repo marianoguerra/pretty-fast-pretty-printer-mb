@@ -8,28 +8,38 @@
 struct Doc {
   /// The width this document takes when rendered flat (i.e. on a single line),
   /// or `None` when it cannot be rendered flat at all because it contains a
-  /// `vert` or a `full_line`.
+  /// `vert`, a `full_line` or a `txt_raw` with a newline in it.
   ///
   /// This is precomputed at construction time. It is the whole trick behind the
   /// algorithm: `if_flat` can decide which branch to take without ever
   /// rendering the branch it discards.
+  ///
+  /// Exposed to callers as `Doc::flat_width`.
   flat_width : Int?
   node : Node
 } derive(Debug)
 
 ///|
 priv enum Node {
-  Text(String)
+  /// Literal text, together with the width it occupies on screen. The width is
+  /// carried explicitly because it is not always the length of the string: see
+  /// [`txt_as`].
+  Text(String, Int)
+  /// Literal text passed through verbatim, newlines and all. See [`txt_raw`].
+  Raw(String)
   Horz(Doc, Doc)
   Concat(Doc, Doc)
   Vert(Doc, Doc)
   FullLine(Doc)
-  IfFlat(Doc, Doc)
+  /// The third field is the number of columns to keep free for whatever
+  /// follows. See [`if_flat`].
+  IfFlat(Doc, Doc, Int)
+  Nest(Int, Doc)
 } derive(Debug)
 
 ///|
 /// The empty document. Equivalent to `txt("")`.
-pub let empty : Doc = { flat_width: Some(0), node: Text("") }
+pub let empty : Doc = { flat_width: Some(0), node: Text("", 0) }
 
 ///|
 /// `txt(s)` simply displays `s`.
@@ -43,15 +53,77 @@ pub let empty : Doc = { flat_width: Some(0), node: Text("") }
 /// }
 /// ```
 ///
+/// The text is assumed to occupy one column per UTF-16 code unit. When that is
+/// wrong — CJK, emoji, terminal escape sequences — use [`txt_as`].
+///
 /// # Panics
 ///
 /// Panics if `text` contains a newline. A `Doc` describes layout, and layout is
-/// this library's job; embed line breaks with [`vert`] or [`txt_lines`].
+/// this library's job; embed line breaks with [`vert`] or [`txt_lines`], or
+/// pass the text through untouched with [`txt_raw`].
 pub fn txt(text : String) -> Doc {
   guard !text.contains("\n") else {
     abort("txt does not accept text with newlines, but was given: \{text}")
   }
-  { flat_width: Some(text.length()), node: Text(text) }
+  txt_as(text, text.length())
+}
+
+///|
+/// `txt_as(text, width)` displays `text`, telling the layout algorithm that it
+/// occupies `width` columns.
+///
+/// [`txt`] measures text in UTF-16 code units, which is exact for ASCII and
+/// wrong for everything whose screen width differs from its encoded length.
+/// The two cases that matter in practice are double-width characters and
+/// zero-width escape sequences:
+///
+/// ```mbt check
+/// test {
+///   // A CJK character is one UTF-16 unit wide but occupies two columns.
+///   let cjk = txt_as("世界", 4)
+///   assert_eq(cjk.flat_width(), Some(4))
+///   // An ANSI colour escape is five UTF-16 units and occupies none.
+///   let red = txt_as("\u{1b}[31m", 0)
+///   let reset = txt_as("\u{1b}[0m", 0)
+///   assert_eq(horz([red, txt("hello"), reset]).flat_width(), Some(5))
+/// }
+/// ```
+///
+/// Because the width is what every layout decision is made from, a coloured
+/// document lays out exactly like the same document without colour.
+///
+/// # Panics
+///
+/// Panics if `text` contains a newline, for the same reason [`txt`] does.
+pub fn txt_as(text : String, width : Int) -> Doc {
+  guard !text.contains("\n") else {
+    abort("txt_as does not accept text with newlines, but was given: \{text}")
+  }
+  { flat_width: Some(width), node: Text(text, width) }
+}
+
+///|
+/// `txt_raw(text)` writes `text` through verbatim. Newlines in it start a new
+/// line at column 0, and nothing is re-indented.
+///
+/// This is the escape hatch for text whose layout is already decided and must
+/// not be touched — block comments, here-documents, multi-line string literals.
+/// [`txt_lines`] re-indents continuation lines to line up with where the text
+/// started; `txt_raw` does not:
+///
+/// ```mbt check
+/// test {
+///   assert_eq(horz([txt("x = "), txt_lines("a\nb")]).display(), ["x = a", "    b"])
+///   assert_eq(horz([txt("x = "), txt_raw("a\nb")]).display(), ["x = a", "b"])
+/// }
+/// ```
+///
+/// Text containing a newline has no flat width, so — like [`vert`] and
+/// [`full_line`] — it can never be chosen as the flat branch of an [`if_flat`].
+/// Text without one behaves exactly like [`txt`].
+pub fn txt_raw(text : String) -> Doc {
+  let flat_width = if text.contains("\n") { None } else { Some(text.length()) }
+  { flat_width, node: Raw(text) }
 }
 
 ///|
@@ -128,6 +200,60 @@ pub fn concat(docs : Array[Doc]) -> Doc {
 }
 
 ///|
+/// `horz2(doc1, doc2)` is [`horz`] on two documents, without building an array.
+///
+/// The array forms are the ones to reach for when you have an array. This is
+/// for folding: `docs.fold(init=empty, horz2)` allocates nothing per step,
+/// where `horz([acc, doc])` allocates a throwaway pair every time.
+///
+/// ```mbt check
+/// test {
+///   let docs = ["a", "b", "c"].map(txt)
+///   inspect(docs.fold(init=empty, horz2).display_string(), content="abc")
+/// }
+/// ```
+pub fn horz2(doc1 : Doc, doc2 : Doc) -> Doc {
+  {
+    flat_width: add_widths(doc1.flat_width, doc2.flat_width),
+    node: Horz(doc1, doc2),
+  }
+}
+
+///|
+/// `concat2(doc1, doc2)` is [`concat`] on two documents. See [`horz2`].
+///
+/// ```mbt check
+/// test {
+///   let docs = ["a", "b", "c"].map(txt)
+///   inspect(docs.fold(init=empty, concat2).display_string(), content="abc")
+/// }
+/// ```
+pub fn concat2(doc1 : Doc, doc2 : Doc) -> Doc {
+  {
+    flat_width: add_widths(doc1.flat_width, doc2.flat_width),
+    node: Concat(doc1, doc2),
+  }
+}
+
+///|
+/// `vert2(doc1, doc2)` is [`vert`] on two documents. See [`horz2`].
+///
+/// ```mbt check
+/// test {
+///   inspect(
+///     vert2(txt("a"), txt("b")).display_string(),
+///     content=(
+///       #|a
+///       #|b
+///     ),
+///   )
+/// }
+/// ```
+pub fn vert2(doc1 : Doc, doc2 : Doc) -> Doc {
+  { flat_width: None, node: Vert(doc1, doc2) }
+}
+
+///|
 /// `if_flat(flat, broken)` chooses between two layouts. It uses `flat` if and
 /// only if:
 ///
@@ -136,6 +262,31 @@ pub fn concat(docs : Array[Doc]) -> Doc {
 /// 2. rendered flat, it fits on the current line without exceeding the width.
 ///
 /// Otherwise it uses `broken`.
+///
+/// `reserve` is the number of columns to keep free for whatever follows the
+/// choice. The algorithm decides in a single left-to-right pass, so it cannot
+/// see the trailing context itself; when the caller knows that, say, two
+/// closing parens come next, `reserve=2` says so:
+///
+/// ```mbt check
+/// test {
+///   let flat = txt("[1, 2]")
+///   let broken = vert([txt("[1,"), txt(" 2]")])
+///   // The group fits in seven columns, so it stays flat -- and then the `))`
+///   // that follows overflows.
+///   let doc = horz([if_flat(flat, broken), txt("))")])
+///   inspect(doc.display_string(width=7), content="[1, 2]))")
+///   // Told that two more columns follow, it breaks, and the result fits.
+///   let doc = horz([if_flat(flat, broken, reserve=2), txt("))")])
+///   inspect(
+///     doc.display_string(width=7),
+///     content=(
+///       #|[1,
+///       #| 2]))
+///     ),
+///   )
+/// }
+/// ```
 ///
 /// ```mbt check
 /// test {
@@ -154,13 +305,15 @@ pub fn concat(docs : Array[Doc]) -> Doc {
 ///   )
 /// }
 /// ```
-pub fn if_flat(flat : Doc, broken : Doc) -> Doc {
+pub fn if_flat(flat : Doc, broken : Doc, reserve? : Int = 0) -> Doc {
+  // `reserve` deliberately does not enter `flat_width`: it describes the
+  // context of *this* choice, not how wide the resulting document is.
   let flat_width = match (flat.flat_width, broken.flat_width) {
     (Some(a), Some(b)) => Some(if a < b { a } else { b })
     (None, w) => w
     (w, None) => w
   }
-  { flat_width, node: IfFlat(flat, broken) }
+  { flat_width, node: IfFlat(flat, broken, reserve) }
 }
 
 ///|
@@ -192,6 +345,73 @@ pub fn full_line(doc : Doc) -> Doc {
 }
 
 ///|
+/// `nest(n, doc)` renders `doc` with `n` more columns of indentation: every
+/// line `doc` breaks onto is indented `n` further, while the line it starts on
+/// is left alone.
+///
+/// ```mbt check
+/// test {
+///   let doc = vert([txt("first line"), txt("second line")])
+///   inspect(
+///     nest(2, doc).display_string(),
+///     content=(
+///       #|first line
+///       #|  second line
+///     ),
+///   )
+/// }
+/// ```
+///
+/// This is the only way to indent a document you did not build yourself.
+/// Prefixing spaces with [`horz`] indents the first line too, which is a
+/// different thing:
+///
+/// ```mbt check
+/// test {
+///   let doc = vert([txt("first line"), txt("second line")])
+///   inspect(
+///     horz([txt("  "), doc]).display_string(),
+///     content=(
+///       #|  first line
+///       #|  second line
+///     ),
+///   )
+/// }
+/// ```
+///
+/// Note that [`horz`] re-indents its right operand to the column its left
+/// operand ended at, which overrides any indentation established outside it.
+/// So an enclosing `nest` has no effect on the right operand of a `horz`,
+/// though a `nest` applied *inside* that operand still does. Nesting always
+/// takes effect under [`concat`] and [`vert`].
+///
+/// Nesting does not change how wide a document is when flat, so it never
+/// changes an [`if_flat`] decision.
+pub fn nest(n : Int, doc : Doc) -> Doc {
+  { flat_width: doc.flat_width, node: Nest(n, doc) }
+}
+
+///|
+/// The width this document occupies when rendered flat, i.e. all on one line,
+/// or `None` when it cannot be rendered flat at all because it contains a
+/// [`vert`], a [`full_line`] or a [`txt_raw`] with a newline in it.
+///
+/// This is precomputed at construction time rather than measured on demand, so
+/// asking is free. It answers the two questions a caller assembling documents
+/// keeps needing — "can this be flattened?" and "how wide is it flat?" — which
+/// is what [`if_flat`] decides from:
+///
+/// ```mbt check
+/// test {
+///   assert_eq(horz([txt("ab"), txt("cd")]).flat_width(), Some(4))
+///   assert_eq(vert([txt("ab"), txt("cd")]).flat_width(), None)
+/// }
+/// ```
+pub fn Doc::flat_width(self : Doc) -> Int? {
+  self.flat_width
+}
+
+///|
 /// Pretty print this document within the given width, returning one string per
 /// line. Lines are never padded on the right, but continuation lines carry
 /// their indentation as leading spaces.
@@ -206,13 +426,13 @@ pub fn full_line(doc : Doc) -> Doc {
 /// }
 /// ```
 pub fn Doc::display(self : Doc, width? : Int = 80) -> Array[String] {
-  let out = Out::new()
-  ignore(self.render(out, 0, 0, width))
-  out.finish()
+  self.display_string(width~).split("\n").map(line => line.to_owned()).collect()
 }
 
 ///|
-/// Like [`Doc::display`], but joins the lines with `"\n"`.
+/// Like [`Doc::display`], but as a single string with the lines joined by
+/// `"\n"`. This is the cheaper of the two: it is what the renderer produces
+/// directly, and [`Doc::display`] splits it.
 ///
 /// ```mbt check
 /// test {
@@ -226,7 +446,41 @@ pub fn Doc::display(self : Doc, width? : Int = 80) -> Array[String] {
 /// }
 /// ```
 pub fn Doc::display_string(self : Doc, width? : Int = 80) -> String {
-  self.display(width~).join("\n")
+  let buf = StringBuilder::new()
+  self.write_to(buf, width~)
+  buf.to_string()
+}
+
+///|
+/// Pretty print this document into an existing [`StringBuilder`], appending to
+/// whatever is already there.
+///
+/// Use this to assemble output without a string per document:
+///
+/// ```mbt check
+/// test {
+///   let buf = StringBuilder::new()
+///   buf.write_string("> ")
+///   vert([txt("one"), txt("two")]).write_to(buf)
+///   inspect(
+///     buf.to_string(),
+///     content=(
+///       #|> one
+///       #|two
+///     ),
+///   )
+/// }
+/// ```
+///
+/// Note that the document is laid out from column 0 regardless of what the
+/// buffer already contains — a `StringBuilder` has no notion of a column. Wrap
+/// the document in a [`horz`] or [`nest`] if you need it indented.
+pub fn Doc::write_to(
+  self : Doc,
+  buf : StringBuilder,
+  width? : Int = 80,
+) -> Unit {
+  ignore(self.render(Out::new(buf), 0, 0, width))
 }
 
 // ---------------------------------------------------------------------------
@@ -243,60 +497,83 @@ fn add_widths(a : Int?, b : Int?) -> Int? {
 }
 
 ///|
-fn horz2(doc1 : Doc, doc2 : Doc) -> Doc {
-  {
-    flat_width: add_widths(doc1.flat_width, doc2.flat_width),
-    node: Horz(doc1, doc2),
-  }
-}
-
-///|
-fn concat2(doc1 : Doc, doc2 : Doc) -> Doc {
-  {
-    flat_width: add_widths(doc1.flat_width, doc2.flat_width),
-    node: Concat(doc1, doc2),
-  }
-}
-
-///|
-fn vert2(doc1 : Doc, doc2 : Doc) -> Doc {
-  { flat_width: None, node: Vert(doc1, doc2) }
-}
-
-///|
-/// Left-fold `docs` with `combine`, treating the empty array as [`empty`].
+/// Combine `docs` with `combine`, treating the empty array as [`empty`].
+///
+/// This splits down the middle rather than folding from one end, so an array of
+/// N documents becomes a tree of depth O(log N) instead of a chain of depth N.
+/// All three of [`horz`], [`vert`] and [`concat`] are associative, so the
+/// grouping is not observable in the output — but it is very observable in how
+/// deeply anything walking the result has to recurse. `Doc::render` uses an
+/// explicit stack and does not care; the derived `Debug` does.
 fn reduce(docs : Array[Doc], combine : (Doc, Doc) -> Doc) -> Doc {
-  guard docs is [first, .. rest] else { empty }
-  rest.fold(init=first, combine)
+  guard docs is [_, ..] else { empty }
+  reduce_slice(docs, 0, docs.length(), combine)
 }
 
 ///|
-/// The output being accumulated: one string builder per line produced so far.
+/// Combine `docs[start:end]`, which must not be empty.
+fn reduce_slice(
+  docs : Array[Doc],
+  start : Int,
+  end : Int,
+  combine : (Doc, Doc) -> Doc,
+) -> Doc {
+  if end - start == 1 {
+    docs[start]
+  } else {
+    let mid = start + (end - start) / 2
+    combine(
+      reduce_slice(docs, start, mid, combine),
+      reduce_slice(docs, mid, end, combine),
+    )
+  }
+}
+
+///|
+/// The output being accumulated. Lines are separated by `"\n"` in a single
+/// buffer rather than kept apart, so rendering allocates once no matter how
+/// many lines come out.
 priv struct Out {
-  lines : Array[StringBuilder]
+  buf : StringBuilder
+  /// Spaces owed to the current line, not yet written. Indentation is written
+  /// lazily so that a line nothing is ever written to stays genuinely empty
+  /// instead of becoming a run of trailing spaces.
+  mut pending_indent : Int
 }
 
 ///|
-fn Out::new() -> Out {
-  { lines: [StringBuilder::new()] }
+fn Out::new(buf : StringBuilder) -> Out {
+  { buf, pending_indent: 0 }
 }
 
 ///|
 fn Out::write(self : Out, text : String) -> Unit {
-  self.lines[self.lines.length() - 1].write_string(text)
+  guard text != "" else { return }
+  if self.pending_indent > 0 {
+    self.buf.write_string(" ".repeat(self.pending_indent))
+    self.pending_indent = 0
+  }
+  self.buf.write_string(text)
 }
 
 ///|
-/// Start a new line, pre-filled with `indent` spaces.
+/// Start a new line, owing it `indent` spaces.
 fn Out::newline(self : Out, indent : Int) -> Unit {
-  let line = StringBuilder::new()
-  line.write_string(" ".repeat(indent))
-  self.lines.push(line)
+  self.buf.write_char('\n')
+  self.pending_indent = indent
 }
 
 ///|
-fn Out::finish(self : Out) -> Array[String] {
-  self.lines.map(line => line.to_string())
+/// One entry on [`Doc::render`]'s work stack.
+priv enum Work {
+  /// Render this document at this indentation, starting at the current column.
+  Todo(Doc, Int)
+  /// Render this document indented to wherever the previous one left off. The
+  /// indentation is not known until the entry is popped, which is exactly what
+  /// makes `horz` follow its left operand.
+  Indented(Doc)
+  /// Break the line, then render this document at this indentation.
+  AfterBreak(Doc, Int)
 }
 
 ///|
@@ -305,6 +582,12 @@ fn Out::finish(self : Out) -> Array[String] {
 /// - `indent`: the column to return to when a line breaks.
 /// - `column`: the current column.
 /// - `width`: the width the printing is allowed to occupy.
+///
+/// This walks the document with an explicit work stack rather than recursing.
+/// A document's *depth* is unbounded in practice — folding N pieces together
+/// with any of the binary combinators builds an N-deep spine — so recursing
+/// once per node would overflow the call stack on documents of very ordinary
+/// size.
 fn Doc::render(
   self : Doc,
   out : Out,
@@ -312,34 +595,60 @@ fn Doc::render(
   column : Int,
   width : Int,
 ) -> Int {
-  match self.node {
-    Text(text) => {
-      out.write(text)
-      column + text.length()
-    }
-    // `horz` re-indents to wherever the left document ended.
-    Horz(doc1, doc2) => {
-      let column = doc1.render(out, indent, column, width)
-      doc2.render(out, column, column, width)
-    }
-    // `concat` keeps the enclosing indentation instead.
-    Concat(doc1, doc2) => {
-      let column = doc1.render(out, indent, column, width)
-      doc2.render(out, indent, column, width)
-    }
-    Vert(doc1, doc2) => {
-      ignore(doc1.render(out, indent, column, width))
-      out.newline(indent)
-      doc2.render(out, indent, indent, width)
-    }
-    FullLine(doc) => doc.render(out, indent, column, width)
-    IfFlat(flat, broken) =>
-      // The heart of the algorithm: this decision consults the precomputed
-      // flat width instead of rendering `flat`, so no work is ever thrown away.
-      match flat.flat_width {
-        Some(flat_width) if column + flat_width <= width =>
-          flat.render(out, indent, column, width)
-        _ => broken.render(out, indent, column, width)
+  let mut column = column
+  let stack = [Todo(self, indent)]
+  while stack.pop() is Some(work) {
+    match work {
+      Indented(doc) => stack.push(Todo(doc, column))
+      AfterBreak(doc, indent) => {
+        out.newline(indent)
+        column = indent
+        stack.push(Todo(doc, indent))
       }
+      Todo(doc, indent) =>
+        match doc.node {
+          Text(text, text_width) => {
+            out.write(text)
+            column += text_width
+          }
+          // Verbatim text: every newline in it drops to column 0 with no
+          // indentation, and the column afterwards follows the last segment.
+          Raw(text) =>
+            for i, segment in text.split("\n").collect() {
+              if i != 0 {
+                out.newline(0)
+                column = 0
+              }
+              out.write(segment.to_owned())
+              column += segment.length()
+            }
+          // `horz` re-indents to wherever the left document ended.
+          Horz(doc1, doc2) => {
+            stack.push(Indented(doc2))
+            stack.push(Todo(doc1, indent))
+          }
+          // `concat` keeps the enclosing indentation instead.
+          Concat(doc1, doc2) => {
+            stack.push(Todo(doc2, indent))
+            stack.push(Todo(doc1, indent))
+          }
+          Vert(doc1, doc2) => {
+            stack.push(AfterBreak(doc2, indent))
+            stack.push(Todo(doc1, indent))
+          }
+          FullLine(doc) => stack.push(Todo(doc, indent))
+          Nest(n, doc) => stack.push(Todo(doc, indent + n))
+          IfFlat(flat, broken, reserve) =>
+            // The heart of the algorithm: this decision consults the
+            // precomputed flat width instead of rendering `flat`, so no work is
+            // ever thrown away.
+            match flat.flat_width {
+              Some(flat_width) if column + flat_width + reserve <= width =>
+                stack.push(Todo(flat, indent))
+              _ => stack.push(Todo(broken, indent))
+            }
+        }
+    }
   }
+  column
 }

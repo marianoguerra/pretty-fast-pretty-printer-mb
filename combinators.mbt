@@ -31,9 +31,15 @@ pub fn wrap(
   // Each word is glued on with a choice: stay on this line after `sep`, or
   // start a new one after `vert_sep`. The choices are independent, which is
   // what makes this a greedy, linear-time wrap.
-  rest.fold(init=first, (paragraph, word) => {
-    concat([paragraph, if_flat(horz([sep, word]), vert([vert_sep, word]))])
-  })
+  //
+  // The pieces are collected and concatenated in one go rather than folded up
+  // one at a time. Folding would build a chain of depth N, which `concat` is
+  // free to balance once it can see the whole array.
+  let pieces = [first]
+  for word in rest {
+    pieces.push(if_flat(horz([sep, word]), vert([vert_sep, word])))
+  }
+  concat(pieces)
 }
 
 ///|
