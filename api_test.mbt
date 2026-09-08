@@ -224,19 +224,19 @@ test "max_indent gives the layout that follows more room" {
 test "max_indent reaches display_string and write_to too" {
   let doc = horz([txt("ab"), vert([txt("x"), txt("y")])])
   assert_eq(doc.display_string(max_indent=0), "abx\ny")
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   doc.write_to(buf, max_indent=0)
   assert_eq(buf.to_string(), "abx\ny")
 }
 
 ///|
 test "write_to appends into an existing buffer" {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf.write_string("> ")
   vert([txt("one"), txt("two")]).write_to(buf)
   assert_eq(buf.to_string(), "> one\ntwo")
   // Same output as display_string, and it keeps appending.
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   let doc = wrap(["a", "b", "c"].map(txt))
   doc.write_to(buf, width=1)
   assert_eq(buf.to_string(), doc.display_string(width=1))

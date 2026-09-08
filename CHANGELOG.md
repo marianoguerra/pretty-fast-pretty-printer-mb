@@ -5,6 +5,22 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-09-08
+
+A maintenance release. No API change and no change to rendering: `moon info`
+reports the same interface, and the test suite passes unchanged on every
+backend.
+
+### Changed
+
+- **`StringBuilder::new()` replaced with `StringBuilder()`.** The former is
+  deprecated in the current `moonbitlang/core`, and was the only thing standing
+  between `moon check` and a clean run. It appeared once in `Doc::display_string`
+  and once in the `Doc::write_to` documentation example.
+
+- **Reformatted with the current `moon fmt`**, which now writes a trailing comma
+  in a single-line record literal. Whitespace only.
+
 ## [0.2.1] - 2026-08-03
 
 One render option added; nothing else changes, and documents render exactly as

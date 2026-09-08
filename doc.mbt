@@ -39,7 +39,7 @@ priv enum Node {
 
 ///|
 /// The empty document. Equivalent to `txt("")`.
-pub let empty : Doc = { flat_width: Some(0), node: Text("", 0) }
+pub let empty : Doc = { flat_width: Some(0), node: Text("", 0), }
 
 ///|
 /// `txt(s)` simply displays `s`.
@@ -99,7 +99,7 @@ pub fn txt_as(text : String, width : Int) -> Doc {
   guard !text.contains("\n") else {
     abort("txt_as does not accept text with newlines, but was given: \{text}")
   }
-  { flat_width: Some(width), node: Text(text, width) }
+  { flat_width: Some(width), node: Text(text, width), }
 }
 
 ///|
@@ -123,7 +123,7 @@ pub fn txt_as(text : String, width : Int) -> Doc {
 /// Text without one behaves exactly like [`txt`].
 pub fn txt_raw(text : String) -> Doc {
   let flat_width = if text.contains("\n") { None } else { Some(text.length()) }
-  { flat_width, node: Raw(text) }
+  { flat_width, node: Raw(text), }
 }
 
 ///|
@@ -250,7 +250,7 @@ pub fn concat2(doc1 : Doc, doc2 : Doc) -> Doc {
 /// }
 /// ```
 pub fn vert2(doc1 : Doc, doc2 : Doc) -> Doc {
-  { flat_width: None, node: Vert(doc1, doc2) }
+  { flat_width: None, node: Vert(doc1, doc2), }
 }
 
 ///|
@@ -313,7 +313,7 @@ pub fn if_flat(flat : Doc, broken : Doc, reserve? : Int = 0) -> Doc {
     (None, w) => w
     (w, None) => w
   }
-  { flat_width, node: IfFlat(flat, broken, reserve) }
+  { flat_width, node: IfFlat(flat, broken, reserve), }
 }
 
 ///|
@@ -341,7 +341,7 @@ pub fn if_flat(flat : Doc, broken : Doc, reserve? : Int = 0) -> Doc {
 /// }
 /// ```
 pub fn full_line(doc : Doc) -> Doc {
-  { flat_width: None, node: FullLine(doc) }
+  { flat_width: None, node: FullLine(doc), }
 }
 
 ///|
@@ -388,7 +388,7 @@ pub fn full_line(doc : Doc) -> Doc {
 /// Nesting does not change how wide a document is when flat, so it never
 /// changes an [`if_flat`] decision.
 pub fn nest(n : Int, doc : Doc) -> Doc {
-  { flat_width: doc.flat_width, node: Nest(n, doc) }
+  { flat_width: doc.flat_width, node: Nest(n, doc), }
 }
 
 ///|
@@ -462,7 +462,7 @@ pub fn Doc::display_string(
   width? : Int = 80,
   max_indent? : Int,
 ) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   self.write_to(buf, width~, max_indent?)
   buf.to_string()
 }
@@ -475,7 +475,7 @@ pub fn Doc::display_string(
 ///
 /// ```mbt check
 /// test {
-///   let buf = StringBuilder::new()
+///   let buf = StringBuilder()
 ///   buf.write_string("> ")
 ///   vert([txt("one"), txt("two")]).write_to(buf)
 ///   inspect(
@@ -608,7 +608,7 @@ priv struct Out {
 
 ///|
 fn Out::new(buf : StringBuilder) -> Out {
-  { buf, pending_indent: 0 }
+  { buf, pending_indent: 0, }
 }
 
 ///|

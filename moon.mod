@@ -11,7 +11,7 @@
 
 name = "marianoguerra/pretty-fast-pretty-printer"
 
-version = "0.2.1"
+version = "0.2.2"
 
 readme = "README.mbt.md"
 
