@@ -10,9 +10,11 @@
 ///
 /// ```mbt check
 /// test {
-///   let words = ["This", "is", "a", "sentence", "with", "eight", "words"].map(txt)
+///   let words = ["This", "is", "a", "sentence", "with", "eight", "words"].map(
+///     @pp.txt,
+///   )
 ///   inspect(
-///     wrap(words).display_string(width=20),
+///     @pp.wrap(words).display_string(width=20),
 ///     content=(
 ///       #|This is a sentence
 ///       #|with eight words
@@ -22,8 +24,8 @@
 /// ```
 pub fn wrap(
   words : Array[Doc],
-  sep? : String = " ",
-  vert_sep? : String = "",
+  sep~ : String = " ",
+  vert_sep~ : String = "",
 ) -> Doc {
   guard words is [first, .. rest] else { empty }
   let sep = txt(sep)
@@ -64,8 +66,8 @@ pub fn wrap(
 ///
 /// ```mbt check
 /// test {
-///   let items = ["alpha", "beta", "gamma"].map(txt)
-///   let doc = sep_by(items, sep=", ", vert_sep=",")
+///   let items = ["alpha", "beta", "gamma"].map(@pp.txt)
+///   let doc = @pp.sep_by(items, sep=", ", vert_sep=",")
 ///   inspect(doc.display_string(width=40), content="alpha, beta, gamma")
 ///   inspect(
 ///     doc.display_string(width=10),
@@ -79,8 +81,8 @@ pub fn wrap(
 /// ```
 pub fn sep_by(
   items : Array[Doc],
-  sep? : String = " ",
-  vert_sep? : String = "",
+  sep~ : String = " ",
+  vert_sep~ : String = "",
 ) -> Doc {
   let vert_sep = txt(vert_sep)
   let last = items.length() - 1
@@ -100,7 +102,7 @@ pub fn sep_by(
 ///
 /// ```mbt check
 /// test {
-///   inspect(parens(txt("a b")).display_string(), content="(a b)")
+///   inspect(@pp.parens(@pp.txt("a b")).display_string(), content="(a b)")
 /// }
 /// ```
 pub fn parens(center : Doc) -> Doc {
@@ -125,7 +127,9 @@ pub fn parens(center : Doc) -> Doc {
 ///
 /// ```mbt check
 /// test {
-///   let doc = standard_sexpr(txt("function"), [txt("very-long-argument")])
+///   let doc = @pp.standard_sexpr(@pp.txt("function"), [
+///     @pp.txt("very-long-argument"),
+///   ])
 ///   inspect(doc.display_string(), content="(function very-long-argument)")
 ///   inspect(
 ///     doc.display_string(width=20),
@@ -158,10 +162,10 @@ pub fn standard_sexpr(func : Doc, args : Array[Doc]) -> Doc {
 ///
 /// ```mbt check
 /// test {
-///   let doc = lambda_like_sexpr(
-///     txt("lambda"),
-///     txt("(number)"),
-///     txt("(* number number)"),
+///   let doc = @pp.lambda_like_sexpr(
+///     @pp.txt("lambda"),
+///     @pp.txt("(number)"),
+///     @pp.txt("(* number number)"),
 ///   )
 ///   inspect(doc.display_string(), content="(lambda (number) (* number number))")
 ///   inspect(
@@ -192,7 +196,7 @@ pub fn lambda_like_sexpr(keyword : Doc, defn : Doc, body : Doc) -> Doc {
 ///
 /// ```mbt check
 /// test {
-///   let doc = begin_like_sexpr(txt("begin"), ["1", "2", "3"].map(txt))
+///   let doc = @pp.begin_like_sexpr(@pp.txt("begin"), ["1", "2", "3"].map(@pp.txt))
 ///   inspect(
 ///     doc.display_string(),
 ///     content=(

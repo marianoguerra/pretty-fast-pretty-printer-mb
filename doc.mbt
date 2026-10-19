@@ -15,7 +15,7 @@ struct Doc {
   /// rendering the branch it discards.
   ///
   /// Exposed to callers as `Doc::flat_width`.
-  flat_width : Int?
+  flat_width : Int32?
   node : Node
 } derive(Debug)
 
@@ -24,7 +24,7 @@ priv enum Node {
   /// Literal text, together with the width it occupies on screen. The width is
   /// carried explicitly because it is not always the length of the string: see
   /// [`txt_as`].
-  Text(String, Int)
+  Text(String, Int32)
   /// Literal text passed through verbatim, newlines and all. See [`txt_raw`].
   Raw(String)
   Horz(Doc, Doc)
@@ -33,8 +33,8 @@ priv enum Node {
   FullLine(Doc)
   /// The third field is the number of columns to keep free for whatever
   /// follows. See [`if_flat`].
-  IfFlat(Doc, Doc, Int)
-  Nest(Int, Doc)
+  IfFlat(Doc, Doc, Int32)
+  Nest(Int32, Doc)
 } derive(Debug)
 
 ///|
@@ -49,7 +49,7 @@ pub let empty : Doc = { flat_width: Some(0), node: Text("", 0), }
 ///
 /// ```mbt check
 /// test {
-///   inspect(txt("Hello, world").display_string(), content="Hello, world")
+///   inspect(@pp.txt("Hello, world").display_string(), content="Hello, world")
 /// }
 /// ```
 ///
@@ -80,12 +80,12 @@ pub fn txt(text : String) -> Doc {
 /// ```mbt check
 /// test {
 ///   // A CJK character is one UTF-16 unit wide but occupies two columns.
-///   let cjk = txt_as("世界", 4)
+///   let cjk = @pp.txt_as("世界", 4)
 ///   assert_eq(cjk.flat_width(), Some(4))
 ///   // An ANSI colour escape is five UTF-16 units and occupies none.
-///   let red = txt_as("\u{1b}[31m", 0)
-///   let reset = txt_as("\u{1b}[0m", 0)
-///   assert_eq(horz([red, txt("hello"), reset]).flat_width(), Some(5))
+///   let red = @pp.txt_as("\u{1b}[31m", 0)
+///   let reset = @pp.txt_as("\u{1b}[0m", 0)
+///   assert_eq(@pp.horz([red, @pp.txt("hello"), reset]).flat_width(), Some(5))
 /// }
 /// ```
 ///
@@ -95,7 +95,7 @@ pub fn txt(text : String) -> Doc {
 /// # Panics
 ///
 /// Panics if `text` contains a newline, for the same reason [`txt`] does.
-pub fn txt_as(text : String, width : Int) -> Doc {
+pub fn txt_as(text : String, width : Int32) -> Doc {
   guard !text.contains("\n") else {
     abort("txt_as does not accept text with newlines, but was given: \{text}")
   }
@@ -113,8 +113,12 @@ pub fn txt_as(text : String, width : Int) -> Doc {
 ///
 /// ```mbt check
 /// test {
-///   assert_eq(horz([txt("x = "), txt_lines("a\nb")]).display(), ["x = a", "    b"])
-///   assert_eq(horz([txt("x = "), txt_raw("a\nb")]).display(), ["x = a", "b"])
+///   assert_eq(@pp.horz([@pp.txt("x = "), @pp.txt_lines("a\nb")]).display(), [
+///     "x = a", "    b",
+///   ])
+///   assert_eq(@pp.horz([@pp.txt("x = "), @pp.txt_raw("a\nb")]).display(), [
+///     "x = a", "b",
+///   ])
 /// }
 /// ```
 ///
@@ -133,7 +137,10 @@ pub fn txt_raw(text : String) -> Doc {
 ///
 /// ```mbt check
 /// test {
-///   let doc = horz([txt("BEGIN "), vert([txt("first line"), txt("second line")])])
+///   let doc = @pp.horz([
+///     @pp.txt("BEGIN "),
+///     @pp.vert([@pp.txt("first line"), @pp.txt("second line")]),
+///   ])
 ///   inspect(
 ///     doc.display_string(),
 ///     content=(
@@ -159,7 +166,7 @@ pub fn horz(docs : Array[Doc]) -> Doc {
 /// ```mbt check
 /// test {
 ///   inspect(
-///     vert([txt("Hello,"), txt("world!")]).display_string(),
+///     @pp.vert([@pp.txt("Hello,"), @pp.txt("world!")]).display_string(),
 ///     content=(
 ///       #|Hello,
 ///       #|world!
@@ -180,9 +187,9 @@ pub fn vert(docs : Array[Doc]) -> Doc {
 ///
 /// ```mbt check
 /// test {
-///   let doc = concat([
-///     txt("BEGIN "),
-///     vert([txt("first line"), txt("second line")]),
+///   let doc = @pp.concat([
+///     @pp.txt("BEGIN "),
+///     @pp.vert([@pp.txt("first line"), @pp.txt("second line")]),
 ///   ])
 ///   inspect(
 ///     doc.display_string(),
@@ -208,8 +215,8 @@ pub fn concat(docs : Array[Doc]) -> Doc {
 ///
 /// ```mbt check
 /// test {
-///   let docs = ["a", "b", "c"].map(txt)
-///   inspect(docs.fold(init=empty, horz2).display_string(), content="abc")
+///   let docs = ["a", "b", "c"].map(@pp.txt)
+///   inspect(docs.fold(init=@pp.empty, @pp.horz2).display_string(), content="abc")
 /// }
 /// ```
 pub fn horz2(doc1 : Doc, doc2 : Doc) -> Doc {
@@ -224,8 +231,11 @@ pub fn horz2(doc1 : Doc, doc2 : Doc) -> Doc {
 ///
 /// ```mbt check
 /// test {
-///   let docs = ["a", "b", "c"].map(txt)
-///   inspect(docs.fold(init=empty, concat2).display_string(), content="abc")
+///   let docs = ["a", "b", "c"].map(@pp.txt)
+///   inspect(
+///     docs.fold(init=@pp.empty, @pp.concat2).display_string(),
+///     content="abc",
+///   )
 /// }
 /// ```
 pub fn concat2(doc1 : Doc, doc2 : Doc) -> Doc {
@@ -241,7 +251,7 @@ pub fn concat2(doc1 : Doc, doc2 : Doc) -> Doc {
 /// ```mbt check
 /// test {
 ///   inspect(
-///     vert2(txt("a"), txt("b")).display_string(),
+///     @pp.vert2(@pp.txt("a"), @pp.txt("b")).display_string(),
 ///     content=(
 ///       #|a
 ///       #|b
@@ -270,14 +280,14 @@ pub fn vert2(doc1 : Doc, doc2 : Doc) -> Doc {
 ///
 /// ```mbt check
 /// test {
-///   let flat = txt("[1, 2]")
-///   let broken = vert([txt("[1,"), txt(" 2]")])
+///   let flat = @pp.txt("[1, 2]")
+///   let broken = @pp.vert([@pp.txt("[1,"), @pp.txt(" 2]")])
 ///   // The group fits in seven columns, so it stays flat -- and then the `))`
 ///   // that follows overflows.
-///   let doc = horz([if_flat(flat, broken), txt("))")])
+///   let doc = @pp.horz([@pp.if_flat(flat, broken), @pp.txt("))")])
 ///   inspect(doc.display_string(width=7), content="[1, 2]))")
 ///   // Told that two more columns follow, it breaks, and the result fits.
-///   let doc = horz([if_flat(flat, broken, reserve=2), txt("))")])
+///   let doc = @pp.horz([@pp.if_flat(flat, broken, reserve=2), @pp.txt("))")])
 ///   inspect(
 ///     doc.display_string(width=7),
 ///     content=(
@@ -290,9 +300,9 @@ pub fn vert2(doc1 : Doc, doc2 : Doc) -> Doc {
 ///
 /// ```mbt check
 /// test {
-///   let doc = if_flat(
-///     txt("[1, 2, 3]"),
-///     vert([txt("[1,"), txt(" 2,"), txt(" 3]")]),
+///   let doc = @pp.if_flat(
+///     @pp.txt("[1, 2, 3]"),
+///     @pp.vert([@pp.txt("[1,"), @pp.txt(" 2,"), @pp.txt(" 3]")]),
 ///   )
 ///   inspect(doc.display_string(width=20), content="[1, 2, 3]")
 ///   inspect(
@@ -305,7 +315,7 @@ pub fn vert2(doc1 : Doc, doc2 : Doc) -> Doc {
 ///   )
 /// }
 /// ```
-pub fn if_flat(flat : Doc, broken : Doc, reserve? : Int = 0) -> Doc {
+pub fn if_flat(flat : Doc, broken : Doc, reserve~ : Int32 = 0) -> Doc {
   // `reserve` deliberately does not enter `flat_width`: it describes the
   // context of *this* choice, not how wide the resulting document is.
   let flat_width = match (flat.flat_width, broken.flat_width) {
@@ -325,11 +335,17 @@ pub fn if_flat(flat : Doc, broken : Doc, reserve? : Int = 0) -> Doc {
 ///
 /// ```mbt check
 /// test {
-///   let plain = horz([if_flat(txt("a"), vert([txt("a"), txt("A")])), txt("b")])
+///   let plain = @pp.horz([
+///     @pp.if_flat(@pp.txt("a"), @pp.vert([@pp.txt("a"), @pp.txt("A")])),
+///     @pp.txt("b"),
+///   ])
 ///   inspect(plain.display_string(width=20), content="ab")
-///   let forced = horz([
-///     if_flat(full_line(txt("a")), vert([txt("a"), txt("A")])),
-///     txt("b"),
+///   let forced = @pp.horz([
+///     @pp.if_flat(
+///       @pp.full_line(@pp.txt("a")),
+///       @pp.vert([@pp.txt("a"), @pp.txt("A")]),
+///     ),
+///     @pp.txt("b"),
 ///   ])
 ///   inspect(
 ///     forced.display_string(width=20),
@@ -351,9 +367,9 @@ pub fn full_line(doc : Doc) -> Doc {
 ///
 /// ```mbt check
 /// test {
-///   let doc = vert([txt("first line"), txt("second line")])
+///   let doc = @pp.vert([@pp.txt("first line"), @pp.txt("second line")])
 ///   inspect(
-///     nest(2, doc).display_string(),
+///     @pp.nest(2, doc).display_string(),
 ///     content=(
 ///       #|first line
 ///       #|  second line
@@ -368,9 +384,9 @@ pub fn full_line(doc : Doc) -> Doc {
 ///
 /// ```mbt check
 /// test {
-///   let doc = vert([txt("first line"), txt("second line")])
+///   let doc = @pp.vert([@pp.txt("first line"), @pp.txt("second line")])
 ///   inspect(
-///     horz([txt("  "), doc]).display_string(),
+///     @pp.horz([@pp.txt("  "), doc]).display_string(),
 ///     content=(
 ///       #|  first line
 ///       #|  second line
@@ -387,7 +403,7 @@ pub fn full_line(doc : Doc) -> Doc {
 ///
 /// Nesting does not change how wide a document is when flat, so it never
 /// changes an [`if_flat`] decision.
-pub fn nest(n : Int, doc : Doc) -> Doc {
+pub fn nest(n : Int32, doc : Doc) -> Doc {
   { flat_width: doc.flat_width, node: Nest(n, doc), }
 }
 
@@ -403,11 +419,11 @@ pub fn nest(n : Int, doc : Doc) -> Doc {
 ///
 /// ```mbt check
 /// test {
-///   assert_eq(horz([txt("ab"), txt("cd")]).flat_width(), Some(4))
-///   assert_eq(vert([txt("ab"), txt("cd")]).flat_width(), None)
+///   assert_eq(@pp.horz([@pp.txt("ab"), @pp.txt("cd")]).flat_width(), Some(4))
+///   assert_eq(@pp.vert([@pp.txt("ab"), @pp.txt("cd")]).flat_width(), None)
 /// }
 /// ```
-pub fn Doc::flat_width(self : Doc) -> Int? {
+pub fn Doc::flat_width(self : Doc) -> Int32? {
   self.flat_width
 }
 
@@ -421,7 +437,7 @@ pub fn Doc::flat_width(self : Doc) -> Int? {
 ///
 /// ```mbt check
 /// test {
-///   let doc = vert([txt("one"), horz([txt("  "), txt("two")])])
+///   let doc = @pp.vert([@pp.txt("one"), @pp.horz([@pp.txt("  "), @pp.txt("two")])])
 ///   assert_eq(doc.display(), ["one", "  two"])
 /// }
 /// ```
@@ -429,8 +445,8 @@ pub fn Doc::flat_width(self : Doc) -> Int? {
 /// `max_indent` caps indentation; see [`Doc::write_to`].
 pub fn Doc::display(
   self : Doc,
-  width? : Int = 80,
-  max_indent? : Int,
+  width~ : Int32 = 80,
+  max_indent? : Int32,
 ) -> Array[String] {
   self
   .display_string(width~, max_indent?)
@@ -447,7 +463,7 @@ pub fn Doc::display(
 /// ```mbt check
 /// test {
 ///   inspect(
-///     vert([txt("one"), txt("two")]).display_string(),
+///     @pp.vert([@pp.txt("one"), @pp.txt("two")]).display_string(),
 ///     content=(
 ///       #|one
 ///       #|two
@@ -459,8 +475,8 @@ pub fn Doc::display(
 /// `max_indent` caps indentation; see [`Doc::write_to`].
 pub fn Doc::display_string(
   self : Doc,
-  width? : Int = 80,
-  max_indent? : Int,
+  width~ : Int32 = 80,
+  max_indent? : Int32,
 ) -> String {
   let buf = StringBuilder()
   self.write_to(buf, width~, max_indent?)
@@ -477,7 +493,7 @@ pub fn Doc::display_string(
 /// test {
 ///   let buf = StringBuilder()
 ///   buf.write_string("> ")
-///   vert([txt("one"), txt("two")]).write_to(buf)
+///   @pp.vert([@pp.txt("one"), @pp.txt("two")]).write_to(buf)
 ///   inspect(
 ///     buf.to_string(),
 ///     content=(
@@ -501,7 +517,10 @@ pub fn Doc::display_string(
 ///
 /// ```mbt check
 /// test {
-///   let doc = horz([txt("(let ((x "), vert([txt("first"), txt("second")])])
+///   let doc = @pp.horz([
+///     @pp.txt("(let ((x "),
+///     @pp.vert([@pp.txt("first"), @pp.txt("second")]),
+///   ])
 ///   assert_eq(doc.display(), ["(let ((x first", "         second"])
 ///   assert_eq(doc.display(max_indent=4), ["(let ((x first", "    second"])
 /// }
@@ -526,11 +545,11 @@ pub fn Doc::display_string(
 ///
 /// ```mbt check
 /// test {
-///   let group = if_flat(
-///     txt("[1, 2, 3]"),
-///     vert([txt("[1,"), txt(" 2,"), txt(" 3]")]),
+///   let group = @pp.if_flat(
+///     @pp.txt("[1, 2, 3]"),
+///     @pp.vert([@pp.txt("[1,"), @pp.txt(" 2,"), @pp.txt(" 3]")]),
 ///   )
-///   let doc = horz([txt("        "), vert([txt("xs ="), group])])
+///   let doc = @pp.horz([@pp.txt("        "), @pp.vert([@pp.txt("xs ="), group])])
 ///   // At width 16 the group starts in column 8 and does not fit.
 ///   assert_eq(doc.display(width=16), [
 ///     "        xs =", "        [1,", "         2,", "         3]",
@@ -542,8 +561,8 @@ pub fn Doc::display_string(
 pub fn Doc::write_to(
   self : Doc,
   buf : StringBuilder,
-  width? : Int = 80,
-  max_indent? : Int,
+  width~ : Int32 = 80,
+  max_indent? : Int32,
 ) -> Unit {
   ignore(self.render(Out::new(buf), 0, 0, width, max_indent))
 }
@@ -554,7 +573,7 @@ pub fn Doc::write_to(
 
 ///|
 /// Widths add, unless either side cannot be flattened.
-fn add_widths(a : Int?, b : Int?) -> Int? {
+fn add_widths(a : Int32?, b : Int32?) -> Int32? {
   match (a, b) {
     (Some(x), Some(y)) => Some(x + y)
     _ => None
@@ -579,8 +598,8 @@ fn reduce(docs : Array[Doc], combine : (Doc, Doc) -> Doc) -> Doc {
 /// Combine `docs[start:end]`, which must not be empty.
 fn reduce_slice(
   docs : Array[Doc],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   combine : (Doc, Doc) -> Doc,
 ) -> Doc {
   if end - start == 1 {
@@ -603,7 +622,7 @@ priv struct Out {
   /// Spaces owed to the current line, not yet written. Indentation is written
   /// lazily so that a line nothing is ever written to stays genuinely empty
   /// instead of becoming a run of trailing spaces.
-  mut pending_indent : Int
+  mut pending_indent : Int32
 }
 
 ///|
@@ -623,7 +642,7 @@ fn Out::write(self : Out, text : String) -> Unit {
 
 ///|
 /// Start a new line, owing it `indent` spaces.
-fn Out::newline(self : Out, indent : Int) -> Unit {
+fn Out::newline(self : Out, indent : Int32) -> Unit {
   self.buf.write_char('\n')
   self.pending_indent = indent
 }
@@ -632,13 +651,13 @@ fn Out::newline(self : Out, indent : Int) -> Unit {
 /// One entry on [`Doc::render`]'s work stack.
 priv enum Work {
   /// Render this document at this indentation, starting at the current column.
-  Todo(Doc, Int)
+  Todo(Doc, Int32)
   /// Render this document indented to wherever the previous one left off. The
   /// indentation is not known until the entry is popped, which is exactly what
   /// makes `horz` follow its left operand.
   Indented(Doc)
   /// Break the line, then render this document at this indentation.
-  AfterBreak(Doc, Int)
+  AfterBreak(Doc, Int32)
 }
 
 ///|
@@ -657,11 +676,11 @@ priv enum Work {
 fn Doc::render(
   self : Doc,
   out : Out,
-  indent : Int,
-  column : Int,
-  width : Int,
-  max_indent : Int?,
-) -> Int {
+  indent : Int32,
+  column : Int32,
+  width : Int32,
+  max_indent : Int32?,
+) -> Int32 {
   let mut column = column
   let stack = [Todo(self, indent)]
   while stack.pop() is Some(work) {
@@ -728,3 +747,8 @@ fn Doc::render(
   }
   column
 }
+
+///|
+#deprecated(skip_current_package=true)
+#doc(hidden)
+pub extend Doc with Debug::{to_repr}

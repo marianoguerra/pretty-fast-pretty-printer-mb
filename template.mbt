@@ -19,10 +19,10 @@ pub(all) enum Piece {
 ///
 /// ```mbt check
 /// test {
-///   let c = txt("a == b")
-///   let t = txt("a << 2")
-///   let e = txt("a + b")
-///   let doc = pretty([
+///   let c = @pp.txt("a == b")
+///   let t = @pp.txt("a << 2")
+///   let e = @pp.txt("a + b")
+///   let doc = @pp.pretty([
 ///     Str("if ("),
 ///     Val(c),
 ///     Str(") {\n  "),
@@ -74,7 +74,7 @@ pub fn pretty(pieces : Array[Piece]) -> Doc {
 /// ```mbt check
 /// test {
 ///   inspect(
-///     horz([txt("> "), txt_lines("one\ntwo")]).display_string(),
+///     @pp.horz([@pp.txt("> "), @pp.txt_lines("one\ntwo")]).display_string(),
 ///     content=(
 ///       #|> one
 ///       #|  two
@@ -85,3 +85,8 @@ pub fn pretty(pieces : Array[Piece]) -> Doc {
 pub fn txt_lines(text : String) -> Doc {
   pretty([Str(text)])
 }
+
+///|
+#deprecated(skip_current_package=true)
+#doc(hidden)
+pub extend Piece with Debug::{to_repr}

@@ -39,12 +39,12 @@ program may be laid out — and then ask for the one that fits a given width:
 ```mbt check
 ///|
 test {
-  let cond = txt("x > 0")
-  let body = txt("print(x)")
-  let doc = vert([
-    horz([txt("while ("), cond, txt(") {")]),
-    horz([txt("  "), body]),
-    txt("}"),
+  let cond = @pp.txt("x > 0")
+  let body = @pp.txt("print(x)")
+  let doc = @pp.vert([
+    @pp.horz([@pp.txt("while ("), cond, @pp.txt(") {")]),
+    @pp.horz([@pp.txt("  "), body]),
+    @pp.txt("}"),
   ])
   inspect(
     doc.display_string(width=80),
@@ -75,7 +75,7 @@ the first one started at.
 ///|
 test {
   inspect(
-    vert([txt("Hello,"), txt("world!")]).display_string(),
+    @pp.vert([@pp.txt("Hello,"), @pp.txt("world!")]).display_string(),
     content=(
       #|Hello,
       #|world!
@@ -90,7 +90,10 @@ previous one ended, and lines up with the *last line* of the previous one.
 ```mbt check
 ///|
 test {
-  let doc = horz([txt("BEGIN "), vert([txt("first line"), txt("second line")])])
+  let doc = @pp.horz([
+    @pp.txt("BEGIN "),
+    @pp.vert([@pp.txt("first line"), @pp.txt("second line")]),
+  ])
   inspect(
     doc.display_string(),
     content=(
@@ -108,9 +111,9 @@ contains no line breaks *and* fits in the remaining width; otherwise it uses
 ```mbt check
 ///|
 test {
-  let doc = if_flat(
-    txt("[1, 2, 3]"),
-    vert([txt("[1,"), txt(" 2,"), txt(" 3]")]),
+  let doc = @pp.if_flat(
+    @pp.txt("[1, 2, 3]"),
+    @pp.vert([@pp.txt("[1,"), @pp.txt(" 2,"), @pp.txt(" 3]")]),
   )
   inspect(doc.display_string(width=20), content="[1, 2, 3]")
   inspect(
@@ -137,16 +140,18 @@ it. When you know — because you are about to append two closing parens, say �
 ```mbt check
 ///|
 test {
-  let flat = txt("[1, 2]")
-  let broken = vert([txt("[1,"), txt(" 2]")])
+  let flat = @pp.txt("[1, 2]")
+  let broken = @pp.vert([@pp.txt("[1,"), @pp.txt(" 2]")])
   // The group fits in seven columns, so it stays flat and the `))` overflows.
   inspect(
-    horz([if_flat(flat, broken), txt("))")]).display_string(width=7),
+    @pp.horz([@pp.if_flat(flat, broken), @pp.txt("))")]).display_string(width=7),
     content="[1, 2]))",
   )
   // Told that two more columns follow, it breaks instead.
   inspect(
-    horz([if_flat(flat, broken, reserve=2), txt("))")]).display_string(width=7),
+    @pp.horz([@pp.if_flat(flat, broken, reserve=2), @pp.txt("))")]).display_string(
+      width=7,
+    ),
     content=(
       #|[1,
       #| 2]))
@@ -167,16 +172,16 @@ build yourself: prefixing spaces with `horz` would indent the first line too.
 ```mbt check
 ///|
 test {
-  let given = vert([txt("first line"), txt("second line")])
+  let given = @pp.vert([@pp.txt("first line"), @pp.txt("second line")])
   inspect(
-    nest(2, given).display_string(),
+    @pp.nest(2, given).display_string(),
     content=(
       #|first line
       #|  second line
     ),
   )
   inspect(
-    horz([txt("  "), given]).display_string(),
+    @pp.horz([@pp.txt("  "), given]).display_string(),
     content=(
       #|  first line
       #|  second line
@@ -209,7 +214,10 @@ there is no width left for its contents.
 ```mbt check
 ///|
 test {
-  let doc = horz([txt("(let ((x "), vert([txt("first"), txt("second")])])
+  let doc = @pp.horz([
+    @pp.txt("(let ((x "),
+    @pp.vert([@pp.txt("first"), @pp.txt("second")]),
+  ])
   assert_eq(doc.display(), ["(let ((x first", "         second"])
   assert_eq(doc.display(max_indent=4), ["(let ((x first", "    second"])
 }
@@ -237,12 +245,12 @@ double-width characters, or escape sequences that occupy no columns at all.
 ///|
 test {
   // A CJK character is one UTF-16 unit but occupies two columns.
-  assert_eq(txt_as("世界", 4).flat_width(), Some(4))
+  assert_eq(@pp.txt_as("世界", 4).flat_width(), Some(4))
   // An ANSI colour escape is five UTF-16 units and occupies none, so a
   // syntax-highlighted document lays out exactly like the plain one.
-  let red = txt_as("\u{1b}[31m", 0)
-  let reset = txt_as("\u{1b}[0m", 0)
-  assert_eq(horz([red, txt("hello"), reset]).flat_width(), Some(5))
+  let red = @pp.txt_as("\u{1b}[31m", 0)
+  let reset = @pp.txt_as("\u{1b}[0m", 0)
+  assert_eq(@pp.horz([red, @pp.txt("hello"), reset]).flat_width(), Some(5))
 }
 ```
 
@@ -258,14 +266,14 @@ text started:
 ///|
 test {
   inspect(
-    horz([txt("x = "), txt_lines("a\nb")]).display_string(),
+    @pp.horz([@pp.txt("x = "), @pp.txt_lines("a\nb")]).display_string(),
     content=(
       #|x = a
       #|    b
     ),
   )
   inspect(
-    horz([txt("x = "), txt_raw("a\nb")]).display_string(),
+    @pp.horz([@pp.txt("x = "), @pp.txt_raw("a\nb")]).display_string(),
     content=(
       #|x = a
       #|b
@@ -286,10 +294,10 @@ newline, the lines are joined with `vert`, and each line's pieces with `horz`.
 ```mbt check
 ///|
 test {
-  let c = txt("a == b")
-  let t = txt("a << 2")
-  let e = txt("a + b")
-  let doc = pretty([
+  let c = @pp.txt("a == b")
+  let t = @pp.txt("a << 2")
+  let e = @pp.txt("a + b")
+  let doc = @pp.pretty([
     Str("if ("),
     Val(c),
     Str(") {\n  "),
@@ -321,9 +329,11 @@ choice, so it fills lines greedily.
 ```mbt check
 ///|
 test {
-  let words = ["This", "is", "a", "sentence", "with", "eight", "words"].map(txt)
+  let words = ["This", "is", "a", "sentence", "with", "eight", "words"].map(
+    @pp.txt,
+  )
   inspect(
-    wrap(words).display_string(width=20),
+    @pp.wrap(words).display_string(width=20),
     content=(
       #|This is a sentence
       #|with eight words
@@ -338,7 +348,11 @@ one line joined by `sep`, or every item goes on its own line.
 ```mbt check
 ///|
 test {
-  let doc = sep_by(["alpha", "beta", "gamma"].map(txt), sep=", ", vert_sep=",")
+  let doc = @pp.sep_by(
+    ["alpha", "beta", "gamma"].map(@pp.txt),
+    sep=", ",
+    vert_sep=",",
+  )
   inspect(doc.display_string(width=40), content="alpha, beta, gamma")
   inspect(
     doc.display_string(width=10),
@@ -361,9 +375,11 @@ layouts:
 ```mbt check
 ///|
 test {
-  let doc = begin_like_sexpr(txt("begin"), [
-    standard_sexpr(txt("+"), [txt("1"), txt("2")]),
-    standard_sexpr(txt("display"), [txt("a-fairly-long-variable-name")]),
+  let doc = @pp.begin_like_sexpr(@pp.txt("begin"), [
+    @pp.standard_sexpr(@pp.txt("+"), [@pp.txt("1"), @pp.txt("2")]),
+    @pp.standard_sexpr(@pp.txt("display"), [
+      @pp.txt("a-fairly-long-variable-name"),
+    ]),
   ])
   inspect(
     doc.display_string(width=30),

@@ -1,3 +1,4 @@
 import {
   "moonbitlang/core/debug",
+  "marianoguerra/pretty-fast-pretty-printer" @pp,
 } for "test"

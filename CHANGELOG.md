@@ -5,6 +5,21 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-10-19
+
+A maintenance release for moon 0.1.20261016 / moonc v0.10.16. No API change
+and no change to rendering; the test suite passes unchanged on every backend.
+
+### Changed
+
+- **Builds clean on moonc v0.10.16.** Tests and documentation examples now
+  call the package through an explicit `@pp` alias (the test-only import of the
+  package itself, added to `moon.pkg`) instead of relying on implicit access.
+
+- **Reformatted with the current `moon fmt`**, which writes `Int` as `Int32`
+  and defaulted optional parameters as `sep~ : String = " "`. The regenerated
+  `pkg.generated.mbti` differs only in that spelling; callers are unaffected.
+
 ## [0.2.2] - 2026-09-08
 
 A maintenance release. No API change and no change to rendering: `moon info`
