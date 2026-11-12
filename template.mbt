@@ -1,12 +1,13 @@
 ///|
 /// One piece of a [`pretty`] template: either literal text (which may contain
 /// newlines) or an embedded document.
+#derive(Debug)
 pub(all) enum Piece {
   /// Literal text. Every `\n` in it starts a new line of the template.
   Str(String)
   /// An already-built document, spliced in at this position.
   Val(Doc)
-} derive(Debug)
+}
 
 ///|
 /// Builds a document from a sequence of literal-text and document pieces, the

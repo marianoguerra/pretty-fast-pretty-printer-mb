@@ -5,6 +5,7 @@
 ///
 /// The layout is chosen in a single left-to-right pass, so printing is linear
 /// in the size of the document.
+#derive(Debug)
 struct Doc {
   /// The width this document takes when rendered flat (i.e. on a single line),
   /// or `None` when it cannot be rendered flat at all because it contains a
@@ -17,9 +18,10 @@ struct Doc {
   /// Exposed to callers as `Doc::flat_width`.
   flat_width : Int32?
   node : Node
-} derive(Debug)
+}
 
 ///|
+#derive(Debug)
 priv enum Node {
   /// Literal text, together with the width it occupies on screen. The width is
   /// carried explicitly because it is not always the length of the string: see
@@ -35,7 +37,7 @@ priv enum Node {
   /// follows. See [`if_flat`].
   IfFlat(Doc, Doc, Int32)
   Nest(Int32, Doc)
-} derive(Debug)
+}
 
 ///|
 /// The empty document. Equivalent to `txt("")`.

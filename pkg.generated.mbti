@@ -51,16 +51,18 @@ pub fn wrap(Array[Doc], sep? : String, vert_sep? : String) -> Doc
 // Errors
 
 // Types and methods
-type Doc derive(@debug.Debug)
+#derive(@debug.Debug)
+type Doc
 pub fn Doc::display(Self, width? : Int32, max_indent? : Int32) -> Array[String]
 pub fn Doc::display_string(Self, width? : Int32, max_indent? : Int32) -> String
 pub fn Doc::flat_width(Self) -> Int32?
 pub fn Doc::write_to(Self, StringBuilder, width? : Int32, max_indent? : Int32) -> Unit
 
+#derive(@debug.Debug)
 pub(all) enum Piece {
   Str(String)
   Val(Doc)
-} derive(@debug.Debug)
+}
 
 // Type aliases
 

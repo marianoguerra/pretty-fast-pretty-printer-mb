@@ -5,6 +5,17 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4] - 2026-11-12
+
+A maintenance release for moon 0.1.20261104 / moonc v0.10.20. No API change
+and no change to rendering; the test suite passes unchanged on every backend.
+
+### Changed
+
+- **Builds clean on moonc v0.10.20**, which deprecates the postfix
+  `} derive(...)`. `moon fmt` moves the three derives to a `#derive(...)`
+  attribute before the type; `pkg.generated.mbti` re-renders them the same way.
+
 ## [0.2.3] - 2026-10-19
 
 A maintenance release for moon 0.1.20261016 / moonc v0.10.16. No API change
